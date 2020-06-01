@@ -1,12 +1,191 @@
 ﻿<Window x:Class="CourseWork_CSaN.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:CourseWork_CSaN"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Regular"
+        TextElement.FontSize="13"
+        TextOptions.TextFormattingMode="Ideal"
+        TextOptions.TextRenderingMode="Auto"
+        Background="{DynamicResource MaterialDesignPaper}"
+        FontFamily="{DynamicResource MaterialDesignFont}"
+        WindowStartupLocation="CenterScreen"
+        Title="FTP-клиент" 
+        Height="750" 
+        Width="1200"
+        MinHeight="600"
+        MinWidth="1200">
     <Grid>
-
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="0.25*"/>
+            <ColumnDefinition Width="0.75*"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel>
+            <materialDesign:Card 
+                Padding="12,8" 
+                Margin="8"
+                Height="Auto"
+                UniformCornerRadius="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="0.3*"/>
+                        <ColumnDefinition Width="0.7*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock 
+                        Style="{DynamicResource MaterialDesignTextBlock}"
+                        Grid.Column="0"
+                        Grid.Row="0"
+                        Margin="0,8"
+                        Text="Хост">
+                    </TextBlock>
+                    <TextBox 
+                        x:Name="tbHost"
+                        Style="{DynamicResource MaterialDesignTextBox}"
+                        Grid.Column="1"
+                        Grid.Row="0"
+                        Margin="0,8"
+                        materialDesign:HintAssist.Hint="Введите адрес сервера">
+                    </TextBox>
+                    <TextBlock 
+                        Style ="{DynamicResource MaterialDesignTextBlock}"
+                        Text="Логин"
+                        Margin="0,8"
+                        Grid.Column="0"
+                        Grid.Row="1">
+                    </TextBlock>
+                    <TextBox 
+                        x:Name="tbLogin"
+                        Style="{DynamicResource MaterialDesignTextBox}"
+                        Margin="0,8"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        materialDesign:HintAssist.Hint="Введите логин">
+                    </TextBox>
+                    <TextBlock 
+                        Style="{DynamicResource MaterialDesignTextBlock}"
+                        Text="Пароль"
+                        Margin="0,8"
+                        Grid.Column="0"
+                        Grid.Row="2">
+                    </TextBlock>
+                    <PasswordBox 
+                        x:Name="tbPassword"
+                        Style="{DynamicResource MaterialDesignPasswordBox}"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Margin="0,8"
+                        materialDesign:HintAssist.Hint="Введите пароль">
+                    </PasswordBox>
+                    <Button 
+                        x:Name="btnConnect" 
+                        Content="Соединиться по FTP"
+                        Margin="0,8" 
+                        Grid.Row="3" 
+                        Grid.ColumnSpan="2"
+                        Width="180"
+                        HorizontalAlignment="Center"
+                        Click="ButtonConnectClick">
+                    </Button>
+                </Grid>
+            </materialDesign:Card>
+            <materialDesign:Card
+                x:Name="cardPath"
+                Padding="12,8" 
+                Margin="8"
+                Height="Auto"
+                UniformCornerRadius="8">
+                <StackPanel>
+                    <TextBlock 
+                        Style="{DynamicResource MaterialDesignTextBlock}"
+                        Text="Текущий путь"
+                        HorizontalAlignment="Center"
+                        Margin="0,4"
+                        FontWeight="Bold">
+                    </TextBlock>
+                    <TextBlock
+                        x:Name="tbCurrentPath"
+                        TextWrapping="WrapWithOverflow"
+                        Style="{DynamicResource MaterialDesignTextBlock}"
+                        Margin="0,4">
+                    </TextBlock>
+                </StackPanel>
+            </materialDesign:Card>
+        </StackPanel>
+        <ListView
+            x:Name="lvFiles"
+            Grid.Column="1"
+            Margin="8"
+            SelectionMode="Single"
+            AllowDrop="True"
+            DragEnter="ListViewFilesDragEnter"
+            Drop="ListViewFilesDrop"
+            MouseDown="ListViewFilesMouseDown"
+            MouseDoubleClick="ListViewFilesMouseDoubleClick">
+            <ListView.Resources>
+                <ContextMenu x:Key="ListContextMenu">
+                    <MenuItem x:Name="miCreateFolder" Header="Создать каталог" Click="MenuItemCreateFolderClick"/>
+                    <MenuItem x:Name="miUpload" Header="Загрузить" Click="MenuItemUploadClick"/>
+                </ContextMenu>
+                <ContextMenu x:Key="ItemContextMenu">
+                    <MenuItem x:Name="miOpen" Header="Открыть" Click="MenuItemOpenClick"/>
+                    <MenuItem x:Name="miDelete" Header="Удалить" Click="MenuItemDeleteClick"/>
+                </ContextMenu>
+            </ListView.Resources>
+            <ListView.Style>
+                <Style TargetType="ListView" BasedOn="{StaticResource MaterialDesignListView}">
+                    <Setter Property="ContextMenu" Value="{StaticResource ItemContextMenu}" />
+                    <Style.Triggers>
+                        <Trigger Property="SelectedIndex" Value="-1">
+                            <Setter Property="ContextMenu" Value="{StaticResource ListContextMenu}" />
+                        </Trigger>
+                        <Trigger Property="SelectedIndex" Value="0">
+                            <Setter Property="ContextMenu" Value="{x:Null}" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.Style>
+            <ListView.View>
+                <GridView>
+                    <GridView.Columns>
+                        <GridViewColumn 
+                            Header="Файл/папка"
+                            Width="400">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <DockPanel Height="32">
+                                        <materialDesign:PackIcon 
+                                            Foreground="{StaticResource PrimaryHueMidBrush}" 
+                                            Height="24" 
+                                            Width="24"
+                                            Kind="{Binding IconType}">
+                                        </materialDesign:PackIcon>
+                                        <TextBlock Text="{Binding Name}" Margin="12,0" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn 
+                            Header="Размер" 
+                            Width="175"
+                            DisplayMemberBinding="{Binding FileSize}">
+                        </GridViewColumn>
+                        <GridViewColumn 
+                            Header="Дата создания"
+                            Width="250"
+                            DisplayMemberBinding="{Binding CreateTime}">
+                        </GridViewColumn>
+                    </GridView.Columns>
+                </GridView>
+            </ListView.View>
+        </ListView>
     </Grid>
 </Window>
