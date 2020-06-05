@@ -120,6 +120,11 @@
                 </StackPanel>
             </materialDesign:Card>
         </StackPanel>
+        <materialDesign:Snackbar 
+            HorizontalAlignment="Stretch"
+            x:Name="sbStatus"
+            MessageQueue="{materialDesign:MessageQueue}">
+        </materialDesign:Snackbar>
         <ListView
             x:Name="lvFiles"
             Grid.Column="1"
@@ -179,7 +184,7 @@
                             DisplayMemberBinding="{Binding FileSize}">
                         </GridViewColumn>
                         <GridViewColumn 
-                            Header="Дата создания"
+                            Header="Дата изменения"
                             Width="250"
                             DisplayMemberBinding="{Binding CreateTime}">
                         </GridViewColumn>

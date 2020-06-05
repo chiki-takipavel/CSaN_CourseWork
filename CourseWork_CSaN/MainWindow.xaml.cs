@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -19,9 +20,14 @@ namespace CourseWork_CSaN
     /// </summary>
     public partial class MainWindow : Window
     {
+        private const string FILE_FILTER = "Любой файл|*.*";
+        private const string ERROR_STRING = "Ошибка";
+        private const string NEW_DIRECTORY = "Новый каталог";
+
         readonly FtpClient ftp;
-        string serverDir = "";
         readonly ObservableCollection<FileStruct> listFiles;
+        private readonly Microsoft.Win32.OpenFileDialog openFileDialog;
+        private readonly Microsoft.Win32.SaveFileDialog saveFileDialog;
 
         public MainWindow()
         {
@@ -29,6 +35,8 @@ namespace CourseWork_CSaN
             ftp = new FtpClient();
             listFiles = new ObservableCollection<FileStruct>();
             lvFiles.ItemsSource = listFiles;
+            openFileDialog = new Microsoft.Win32.OpenFileDialog() { Filter = FILE_FILTER };
+            saveFileDialog = new Microsoft.Win32.SaveFileDialog() { Filter = FILE_FILTER };
         }
 
         private void ButtonConnectClick(object sender, RoutedEventArgs e)
@@ -54,14 +62,13 @@ namespace CourseWork_CSaN
         private void ListViewFilesMouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             if (lvFiles.SelectedItem == null || e.ChangedButton != MouseButton.Left) { return; }
-            FileStruct fileStruct = (FileStruct)lvFiles.SelectedItem;
-            OpenDirectoryOrDownloadFile(fileStruct);
+            OpenDirectoryOrDownloadFile();
         }
 
         private void ListViewFilesDragEnter(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
-                e.Effects = DragDropEffects.Copy;
+                e.Effects = DragDropEffects.All;
         }
 
         private void ListViewFilesDrop(object sender, DragEventArgs e)
@@ -69,37 +76,31 @@ namespace CourseWork_CSaN
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if (files.Length == 1)
-                {
-                    UploadFile(files[0]);
-                }
-                else
-                {
-                    // show error
-                }
+                UploadFiles(files);
             }
         }
 
         private void MenuItemCreateFolderClick(object sender, RoutedEventArgs e)
         {
-
+            CreateDirectory();
         }
 
         private void MenuItemUploadClick(object sender, RoutedEventArgs e)
         {
-
+            if (openFileDialog.ShowDialog() == true)
+            {
+                UploadFiles(openFileDialog.FileNames);
+            }
         }
 
         private void MenuItemOpenClick(object sender, RoutedEventArgs e)
         {
-            if (lvFiles.SelectedItem == null) { return; }
-            FileStruct fileStruct = (FileStruct)lvFiles.SelectedItem;
-            OpenDirectoryOrDownloadFile(fileStruct);
+            OpenDirectoryOrDownloadFile();
         }
 
         private void MenuItemDeleteClick(object sender, RoutedEventArgs e)
         {
-
+            DeleteFileOrDirectory();
         }
 
         private async void FtpConnect()
@@ -107,70 +108,118 @@ namespace CourseWork_CSaN
             try
             {
                 ftp.Host = tbHost.Text;
+                tbHost.Text = ftp.Host;
                 ftp.Username = tbLogin.Text;
                 ftp.Password = tbPassword.Password;
 
-                if (ftp.Host.IndexOf('/') > 0)
-                {
-                    serverDir = ftp.Host.Substring(ftp.Host.IndexOf('/'));
-                }
-                else
-                {
-                    serverDir = "";
-                }
                 listFiles.Clear();
-                (await Task.Run(() => ftp.ListDirectory(serverDir))).ForEach(x => listFiles.Add(x));
+                (await Task.Run(() => ftp.ListDirectory(ftp.CurrentDirectory))).ForEach(x => listFiles.Add(x));
+                tbCurrentPath.Text = string.IsNullOrWhiteSpace(ftp.CurrentDirectory) ? "/" : ftp.CurrentDirectory;
+                sbStatus.MessageQueue.Enqueue(ftp.Status);
             }
             catch (Exception ex)
             {
+                MessageBox.Show(ex.Message, ERROR_STRING, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private async void OpenDirectoryOrDownloadFile(FileStruct fileStruct)
+        private async void OpenDirectoryOrDownloadFile()
         {
+            FileStruct fileStruct = (FileStruct)lvFiles.SelectedItem;
             try
             {
                 string name = fileStruct.Name;
                 if (fileStruct.IsDirectory)
                 {
-                    serverDir += "/" + name;
-                    tbHost.Text = ftp.Host + serverDir;
+                    ftp.CurrentDirectory += "/" + name;
 
                     listFiles.Clear();
-                    (await Task.Run(() => ftp.ListDirectory(serverDir))).ForEach(x => listFiles.Add(x));
+                    (await Task.Run(() => ftp.ListDirectory(ftp.CurrentDirectory))).ForEach(x => listFiles.Add(x));
+                    tbCurrentPath.Text = string.IsNullOrWhiteSpace(ftp.CurrentDirectory) ? "/" : ftp.CurrentDirectory;
                 }
                 else if (name == "..")
                 {
-                    serverDir = ftp.ParentDirectory(serverDir);
-                    tbHost.Text = ftp.Host + serverDir;
+                    ftp.CurrentDirectory = ftp.ParentDirectory(ftp.CurrentDirectory);
 
                     listFiles.Clear();
-                    (await Task.Run(() => ftp.ListDirectory(serverDir))).ForEach(x => listFiles.Add(x));
+                    (await Task.Run(() => ftp.ListDirectory(ftp.CurrentDirectory))).ForEach(x => listFiles.Add(x));
+                    tbCurrentPath.Text = string.IsNullOrWhiteSpace(ftp.CurrentDirectory) ? "/" : ftp.CurrentDirectory;
                 }
                 else
                 {
-                    await Task.Run(() => ftp.DownloadFile(serverDir, name));
+                    saveFileDialog.FileName = name;
+                    if (saveFileDialog.ShowDialog() == true)
+                    {
+                        await Task.Run(() => ftp.DownloadFile(ftp.CurrentDirectory, name, saveFileDialog.FileName));
+                        sbStatus.MessageQueue.Enqueue(ftp.Status);
+                    }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, ERROR_STRING, MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private async void CreateDirectory()
         {
-
+            try
+            {
+                DialogWithTextBox dialog = new DialogWithTextBox { Title = NEW_DIRECTORY };
+                if (dialog.ShowDialog() == true)
+                {
+                    string newDirectoryName = dialog.NewName;
+                    if (!string.IsNullOrEmpty(newDirectoryName))
+                    {
+                        await Task.Run(() => ftp.CreateDirectory(ftp.CurrentDirectory, newDirectoryName));
+                        sbStatus.MessageQueue.Enqueue(ftp.Status);
+                        listFiles.Clear();
+                        (await Task.Run(() => ftp.ListDirectory(ftp.CurrentDirectory))).ForEach(x => listFiles.Add(x));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, ERROR_STRING, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
-        private async void UploadFile(string file)
+        private async void UploadFiles(string[] files)
         {
-            await Task.Run(() => ftp.UploadFile(serverDir, Path.GetFileName(file)));
+            try
+            {
+                await Task.Run(() => ftp.UploadFiles(ftp.CurrentDirectory, files));
+                sbStatus.MessageQueue.Enqueue(ftp.Status);
+                listFiles.Clear();
+                (await Task.Run(() => ftp.ListDirectory(ftp.CurrentDirectory))).ForEach(x => listFiles.Add(x));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, ERROR_STRING, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
-        private async void DeleteFileOrDirectory(FileStruct fileStruct)
+        private async void DeleteFileOrDirectory()
         {
-
+            FileStruct fileStruct = (FileStruct)lvFiles.SelectedItem;
+            try
+            {
+                if (fileStruct.IsDirectory)
+                {
+                    await Task.Run(() => ftp.RemoveDirectory(ftp.CurrentDirectory, fileStruct.Name));
+                }
+                else
+                {
+                    await Task.Run(() => ftp.DeleteFile(ftp.CurrentDirectory, fileStruct.Name));
+                }
+                sbStatus.MessageQueue.Enqueue(ftp.Status);
+                listFiles.Clear();
+                (await Task.Run(() => ftp.ListDirectory(ftp.CurrentDirectory))).ForEach(x => listFiles.Add(x));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, ERROR_STRING, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

@@ -46,38 +46,6 @@ namespace CourseWork_CSaN
 
         public List<FileStruct> FullList { get; }
 
-/*        public List<FileStruct> FileList
-        {
-            get
-            {
-                List<FileStruct> listFiles = new List<FileStruct>();
-                foreach (FileStruct fileStruct in FullList)
-                {
-                    if (!fileStruct.IsDirectory)
-                    {
-                        listFiles.Add(fileStruct);
-                    }
-                }
-                return listFiles;
-            }
-        }
-
-        public List<FileStruct> DirectoryList
-        {
-            get
-            {
-                List<FileStruct> listDirectories = new List<FileStruct>();
-                foreach (FileStruct fileStruct in FullList)
-                {
-                    if (fileStruct.IsDirectory)
-                    {
-                        listDirectories.Add(fileStruct);
-                    }
-                }
-                return listDirectories;
-            }
-        }*/
-
         public FileDirectoryParser(string response)
         {
             FullList = GetList(response);
@@ -90,7 +58,10 @@ namespace CourseWork_CSaN
         /// <returns>Список файлов и каталогов</returns>
         private List<FileStruct> GetList(string data)
         {
-            List<FileStruct> listResult = new List<FileStruct>();
+            List<FileStruct> listResult = new List<FileStruct>
+            {
+                new FileStruct() { Name = "..", IconType = "ArrowBackCircle" }
+            };
             string[] records = data.Split('\n');
             RecordsStyle style = GetRecordsStyle(records);  //Получаем стиль записей на сервере
             switch (style)
@@ -104,7 +75,6 @@ namespace CourseWork_CSaN
                 case RecordsStyle.Unknown:
                     return listResult;
             }
-            listResult.Add(new FileStruct() { Name = "..", IconType = "ArrowBackCircle" });
             foreach (string record in records)
             {
                 if (!string.IsNullOrWhiteSpace(record))
